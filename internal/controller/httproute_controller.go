@@ -158,16 +158,17 @@ func (r *HTTPRouteReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 					if proxyService.Domain != string(hostname) {
 						continue
 					}
-					_, err := r.Netbird.ReverseProxyServices.Update(ctx, proxyService.Id, proxyReq)
-					if err != nil {
-						return err
+					// Updating a service restarts its certificate issuance, so
+					// only update when something this controller manages has
+					// changed, and never create a second service for the domain.
+					if proxyServiceMatches(proxyService, proxyReq) {
+						return nil
 					}
-				}
-				_, err := r.Netbird.ReverseProxyServices.Create(ctx, proxyReq)
-				if err != nil {
+					_, err := r.Netbird.ReverseProxyServices.Update(ctx, proxyService.Id, proxyReq)
 					return err
 				}
-				return nil
+				_, err := r.Netbird.ReverseProxyServices.Create(ctx, proxyReq)
+				return err
 			}()
 			if err != nil {
 				return ctrl.Result{}, err
